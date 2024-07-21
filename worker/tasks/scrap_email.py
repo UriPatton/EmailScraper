@@ -23,6 +23,7 @@ class AsyncEmailScraper:
         self.current_page = current_page
         self.base_url = base_url
         self.visited_urls = set()
+        self.invalid_urls = set()
         self.max_pages = max_pages
         self.emails = set()
         self.to_visit_urls = asyncio.Queue()
@@ -37,6 +38,10 @@ class AsyncEmailScraper:
             try:
                 headers = {'User-Agent': self.user_agent.random}
                 async with self.session.get(url, headers=headers) as response:
+                    # check content type
+                    if not self.valid_content_type(response.headers.get('content-type', '')):
+                        self.invalid_urls.add(url)
+                        return ""
                     # Consider using response.raise_for_status() to catch HTTP error responses
                     if response.status not in range(400, 499):
                         result = await response.text()
@@ -52,6 +57,14 @@ class AsyncEmailScraper:
         emails_set = set(self.email_pattern.findall(content))
         self.emails.update(emails_set)
 
+    def valid_content_type(self, content_type):
+        return any(ct in content_type for ct in ['text/html', 'application/xhtml+xml'])
+
+    def invalid_extension(self, url):
+        invalid_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.svg', '.mp4', '.mp3', '.avi', '.mov', '.webm',
+                              '.zip', '.rar', '.tar', '.gz', '.7z', '.exe', '.dmg', '.iso', '.apk', '.deb', '.rpm', ]
+        return any(url.endswith(ext) for ext in invalid_extensions)
+
     def clean_url(self, url):
         # Clean the URL by removing query parameters and fragments
         parsed_url = urlparse(url)
@@ -65,6 +78,11 @@ class AsyncEmailScraper:
             if not urlparse(link).netloc:
                 link = urljoin(_url, link)
             cleaned_url = self.clean_url(link)
+            if cleaned_url in self.invalid_urls:
+                continue
+            if self.invalid_extension(cleaned_url):
+                self.invalid_urls.add(cleaned_url)
+                continue
             if (domain == urlparse(cleaned_url).netloc and cleaned_url not in self.visited_urls and
                     (self.to_visit_urls.qsize() + len(self.visited_urls)) < self.max_pages):
                 # Check if URL is already in the queue to avoid duplicate work
@@ -116,3 +134,9 @@ def scrap_emails(domains: list[AnyHttpUrl], max_worker: int, max_pages: int) -> 
             print(f"Failed to run email scraper: {e}, for domain: {domain}")
         emails[domain_str] = list(email_scraper.emails)
     return [emails]
+
+
+if __name__ == '__main__':
+    domains = ["https://zeptos.ge", "https://www.google.com", "https://www.facebook.com"]
+    result = scrap_emails(domains, 100, 100)
+    print(f"Found emails: {result}")
