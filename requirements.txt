@@ -1,5 +1,9 @@
 fastapi
+pydantic
 pyjwt
 uvicorn
 passlib
 sqlalchemy
+redis
+rq
+bcrypt

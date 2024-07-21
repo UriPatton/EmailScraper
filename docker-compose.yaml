@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+
+  redis:
+    image: redis:6
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--bind", "redis", "--port", "6379"]
+  worker:
+    build: .
+    command: python worker.py
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+
+volumes:
+  redis_data:
