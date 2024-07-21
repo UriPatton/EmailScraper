@@ -1,13 +1,14 @@
-from email_scraper.model import EmailScraperRequest, Emails
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from typing import Annotated
-from fastapi.security import OAuth2PasswordRequestForm
-from auth.auth import (db_dependency, create_access_token, authenticate_user,
-                       ACCESS_TOKEN_EXPIRE_MINUTES, oauth2_scheme)
-from auth.model import Token
-from datetime import timedelta
+from fastapi import APIRouter, Response, status
+# from typing import Annotated
+# from fastapi.security import OAuth2PasswordRequestForm
+# from auth.auth import (db_dependency, create_access_token, authenticate_user,
+#                        ACCESS_TOKEN_EXPIRE_MINUTES, oauth2_scheme)
+# from auth.model import Token
+# from datetime import timedelta
 from redis import Redis
 from rq import Queue
+
+from email_scraper.model import EmailScraperRequest, Emails, JobStatus
 from tasks.scrap_email import scrap_emails
 
 router = APIRouter()
@@ -15,30 +16,31 @@ redis_conn = Redis(host='redis', port=6379, db=0)  # Adjust connection parameter
 q = Queue(connection=redis_conn, name='default')
 
 
-@router.post("/token",
-             response_model=Token,
-             status_code=status.HTTP_200_OK,
-             tags=['auth'],
-             summary='Login',
-             description='Login to get access token',
-             response_description='Access Token')
-async def login_for_access_token(db: db_dependency,
-                                 form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
-    user = authenticate_user(db, form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
-    return Token(access_token=access_token, token_type="bearer")
+#
+# @router.post("/token",
+#              response_model=Token,
+#              status_code=status.HTTP_200_OK,
+#              tags=['auth'],
+#              summary='Login',
+#              description='Login to get access token',
+#              response_description='Access Token')
+# async def login_for_access_token(db: db_dependency,
+#                                  form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
+#     user = authenticate_user(db, form_data.username, form_data.password)
+#     if not user:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Incorrect username or password",
+#             headers={"WWW-Authenticate": "Bearer"},
+#         )
+#     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+#     access_token = create_access_token(
+#         data={"sub": user.email}, expires_delta=access_token_expires
+#     )
+#     return Token(access_token=access_token, token_type="bearer")
 
 
-@router.post("/email_scraper/", dependencies=[Depends(oauth2_scheme)],
+@router.post("/email_scraper/",
              responses={200: {"job_id": "Job ID", "status": "In Progress"}},
              status_code=status.HTTP_200_OK,
              # dependencies=[Depends(oauth2_scheme)],
@@ -57,9 +59,11 @@ async def email_scraper(email_scraper_request: EmailScraperRequest):
     return {"job_id": job.id, "status": "In Progress"}
 
 
-@router.get("/email_scraper/{job_id}", dependencies=[Depends(oauth2_scheme)],
+@router.get("/email_scraper/{job_id}",
+            # dependencies=[Depends(oauth2_scheme)],
             response_model=Emails,
-            responses={200: {"emails": ["jondoe@example.com"]}},
+            responses={200: {"emails": ["jondoe@example.com"]},
+                       202: {"job_id": "Job ID", "status": "In Progress", "percentage": 10}},
             status_code=status.HTTP_200_OK,
             tags=['email'],
             summary='Email Scraper Result',
@@ -74,11 +78,14 @@ async def email_scraper_result(job_id: str):
         )
     if job.is_finished:
         return Emails(emails=job.return_value())
-    return Response(
-        content='Job is not finished yet',
-        status_code=status.HTTP_202_ACCEPTED
-    )
-
+    # get job status
+    response = {
+        "job_id": job.id,
+        "status": job.get_status(),
+        "percentage": job.meta.get('percentage', 0)
+    }
+    # return job status with status code 202
+    return Response(content=JobStatus(**response).model_dump_json(), status_code=status.HTTP_202_ACCEPTED)
 
 # @router.post("/create_user", status_code=status.HTTP_201_CREATED)
 # async def create_user(db: db_dependency,

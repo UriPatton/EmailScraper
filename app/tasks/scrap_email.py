@@ -9,4 +9,4 @@ def scrap_emails(domains: list, max_worker: int, max_pages: int) -> None:
     :param max_pages:
     :return:
     '''
-    print('Fake Scraping emails...')
+    print('Fake Scraping emails...1')

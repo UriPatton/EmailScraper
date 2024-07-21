@@ -1,13 +1,26 @@
 import asyncio
 import re
+from typing import List, Dict
 from urllib.parse import urlparse, urljoin, urlunparse
+
 import aiohttp
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
+from pydantic import AnyHttpUrl
+from rq import get_current_job
 
 
 class AsyncEmailScraper:
-    def __init__(self, base_url, max_pages=100, max_workers=50):
+    def __init__(self,
+                 base_url,
+                 max_pages=100,
+                 max_workers=50,
+                 all_pages: int = 0,
+                 current_page: int = 1
+                 ):
+        self.job = get_current_job()
+        self.all_pages = all_pages
+        self.current_page = current_page
         self.base_url = base_url
         self.visited_urls = set()
         self.max_pages = max_pages
@@ -83,13 +96,23 @@ class AsyncEmailScraper:
             await asyncio.gather(*workers, return_exceptions=True)
 
 
-def scrap_emails(domains: list, max_worker: int, max_pages: int) -> list:
-    emails = []
-    for domain in domains:
-        email_scraper = AsyncEmailScraper(str(domain), max_pages=max_pages, max_workers=max_worker)
+def scrap_emails(domains: list[AnyHttpUrl], max_worker: int, max_pages: int) -> List[Dict[str, List]]:
+    emails = {}
+    for index, domain in enumerate(domains, start=1):
+        domain_str = str(domain)
+        email_scraper = AsyncEmailScraper(
+            domain_str,
+            max_pages=max_pages,
+            max_workers=max_worker,
+            all_pages=len(domains),
+            current_page=index
+        )
         try:
             asyncio.run(email_scraper.run())
+            job = get_current_job()
+            job.meta['percentage'] = int((index / len(domains)) * 100)
+            job.save_meta()
         except Exception as e:
             print(f"Failed to run email scraper: {e}, for domain: {domain}")
-        emails.extend(email_scraper.emails)
-    return emails
+        emails[domain_str] = list(email_scraper.emails)
+    return [emails]

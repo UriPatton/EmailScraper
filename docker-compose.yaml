@@ -1,12 +1,12 @@
 version: '3.8'
 
 services:
-  app:
+  email_scraper_api:
     build:
         context: ./app
         dockerfile: Dockerfile
     volumes:
-      - ./app:/app
+      - ./app:/usr/src/app
     ports:
       - "8000:8000"
     depends_on:
@@ -18,13 +18,13 @@ services:
     ports:
       - "6379:6379"
     command: ["redis-server", "--bind", "redis", "--port", "6379"]
-  worker:
+  email_scraper_worker:
     build:
         context: ./worker
         dockerfile: Dockerfile
     command: python worker.py
     volumes:
-      - ./worker:/worker
+      - ./worker:/usr/src/worker
     depends_on:
       - redis
 
