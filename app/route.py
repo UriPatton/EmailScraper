@@ -1,23 +1,21 @@
 from email_scraper.model import EmailScraperRequest, Emails
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from auth.database import User
-from pydantic import EmailStr
 from typing import Annotated
 from fastapi.security import OAuth2PasswordRequestForm
-from auth.auth import (db_dependency, bcrypt_context, create_access_token, Token, authenticate_user,
+from auth.auth import (db_dependency, create_access_token, authenticate_user,
                        ACCESS_TOKEN_EXPIRE_MINUTES, oauth2_scheme)
-from auth.model import CreateUserRequest
+from auth.model import Token
 from datetime import timedelta
 from redis import Redis
 from rq import Queue
 from tasks.scrap_email import scrap_emails
 
 router = APIRouter()
-redis_conn = Redis(host='localhost', port=6379, db=0)  # Adjust connection parameters as needed
+redis_conn = Redis(host='redis', port=6379, db=0)  # Adjust connection parameters as needed
 q = Queue(connection=redis_conn, name='default')
 
 
-@router.post("/token", dependencies=[Depends(oauth2_scheme)],
+@router.post("/token",
              response_model=Token,
              status_code=status.HTTP_200_OK,
              tags=['auth'],
@@ -38,18 +36,6 @@ async def login_for_access_token(db: db_dependency,
         data={"sub": user.email}, expires_delta=access_token_expires
     )
     return Token(access_token=access_token, token_type="bearer")
-
-# class SomeForm:
-#
-#     def __init__(
-#         self,
-#         max_pages: int = Form(...),
-#         max_workers: int = Form(...),
-#         webpages: str = Form(...)
-#     ):
-#         self.max_pages = max_pages
-#         self.max_workers = max_workers
-#         self.webpages = webpages
 
 
 @router.post("/email_scraper/", dependencies=[Depends(oauth2_scheme)],
@@ -113,13 +99,13 @@ async def email_scraper_result(job_id: str):
 #     )
 #
 #
-# @router.get("/all_users/", dependencies=[Depends(oauth2_scheme)])
+# @router.get("/all_users/")
 # async def get_all_users(db: db_dependency):
 #     users = db.query(User).all()
 #     return users
 #
 #
-# @router.delete("/delete_user/{email}", status_code=status.HTTP_200_OK, dependencies=[Depends(oauth2_scheme)])
+# @router.delete("/delete_user/{email}", status_code=status.HTTP_200_OK)
 # def delete_user(db: db_dependency, user_email: EmailStr):
 #     user = db.query(User).filter(User.email == user_email).first()
 #     if not user:

@@ -1,16 +1,15 @@
 from sqlalchemy.orm import Session
-from auth.database import User, SessionLocal
+from .database import User, SessionLocal
 from pydantic import EmailStr
-from .model import Token, TokenData
+from .model import TokenData
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Union
 
 import jwt
-from fastapi import Depends, FastAPI, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
-from pydantic import BaseModel
 
 SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
@@ -39,9 +38,11 @@ def verify_password(plain_password, hashed_password):
 def get_password_hash(password):
     return bcrypt_context.hash(password)
 
+
 def get_user(db: db_dependency, email: EmailStr):
     user = db.query(User).filter(User.email == email).first()
     return user
+
 
 def authenticate_user(db: db_dependency, username: str, password: str):
     user = get_user(db, username)
@@ -50,6 +51,7 @@ def authenticate_user(db: db_dependency, username: str, password: str):
     if not verify_password(password, user.hashed_password):
         return False
     return user
+
 
 def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
     to_encode = data.copy()

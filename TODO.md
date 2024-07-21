@@ -5,6 +5,8 @@
 1. აგზავნის მომხმარებელი მისამართზე `/email/scraper/` `POST` მეთოდს პარამეტრებით
 email_scraper_request
 
+root@localhost.com
+84ewtxgt13w13A!
 
 
 1. შექმენი `all_users` რომელიც დააბრუნებს ყველა იუზერს

@@ -1,19 +1,30 @@
 version: '3.8'
 
 services:
-
+  app:
+    build:
+        context: ./app
+        dockerfile: Dockerfile
+    volumes:
+      - ./app:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
   redis:
-    image: redis:6
+    image: redis:alpine
     volumes:
       - redis_data:/data
     ports:
       - "6379:6379"
     command: ["redis-server", "--bind", "redis", "--port", "6379"]
   worker:
-    build: .
+    build:
+        context: ./worker
+        dockerfile: Dockerfile
     command: python worker.py
     volumes:
-      - .:/app
+      - ./worker:/worker
     depends_on:
       - redis
 
