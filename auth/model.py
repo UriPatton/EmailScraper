@@ -14,4 +14,4 @@ class TokenData(BaseModel):
 class CreateUserRequest(BaseModel):
     email: EmailStr
     password: str
-    role: str
+

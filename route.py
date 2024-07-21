@@ -49,7 +49,9 @@ async def login_for_access_token(db: db_dependency,
              description='Scrapes emails from webpages',
              response_description='List of emails'
              )
-async def email_scraper(email_scraper_request: EmailScraperRequest):
+async def email_scraper(email_scraper_request: EmailScraperRequest,
+                        form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+                        db: db_dependency):
     job = q.enqueue(scrap_emails,
                     email_scraper_request.webpages,
                     email_scraper_request.max_worker,
@@ -80,37 +82,36 @@ async def email_scraper_result(job_id: str):
     )
 
 
-@router.post("/create_user", status_code=status.HTTP_201_CREATED)
-async def create_user(db: db_dependency,
-                      create_user_request: CreateUserRequest):
-    create_user_model = User(
-        email=create_user_request.email,
-        hashed_password=bcrypt_context.hash(create_user_request.password),
-        role=create_user_request.role,
-        password=create_user_request.password
-    )
-    # check if user already exists
-    if db.query(User).filter(User.email == create_user_request.email).first() is None:
-        db.add(create_user_model)
-        db.commit()
-        return 'User Created'
-    return Response(
-        content='Email Already exists',
-        status_code=status.HTTP_400_BAD_REQUEST
-    )
-
-
-@router.get("/all_users/", dependencies=[Depends(oauth2_scheme)])
-async def get_all_users(db: db_dependency):
-    users = db.query(User).all()
-    return users
-
-
-@router.delete("/delete_user/{email}", status_code=status.HTTP_200_OK, dependencies=[Depends(oauth2_scheme)])
-def delete_user(db: db_dependency, user_email: EmailStr):
-    user = db.query(User).filter(User.email == user_email).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    db.delete(user)
-    db.commit()
-    return 'User Deleted'
+# @router.post("/create_user", status_code=status.HTTP_201_CREATED)
+# async def create_user(db: db_dependency,
+#                       create_user_request: CreateUserRequest):
+#     create_user_model = User(
+#         email=create_user_request.email,
+#         hashed_password=bcrypt_context.hash(create_user_request.password),
+#
+#     )
+#     # check if user already exists
+#     if db.query(User).filter(User.email == create_user_request.email).first() is None:
+#         db.add(create_user_model)
+#         db.commit()
+#         return 'User Created'
+#     return Response(
+#         content='Email Already exists',
+#         status_code=status.HTTP_400_BAD_REQUEST
+#     )
+#
+#
+# @router.get("/all_users/", dependencies=[Depends(oauth2_scheme)])
+# async def get_all_users(db: db_dependency):
+#     users = db.query(User).all()
+#     return users
+#
+#
+# @router.delete("/delete_user/{email}", status_code=status.HTTP_200_OK, dependencies=[Depends(oauth2_scheme)])
+# def delete_user(db: db_dependency, user_email: EmailStr):
+#     user = db.query(User).filter(User.email == user_email).first()
+#     if not user:
+#         raise HTTPException(status_code=404, detail="User not found")
+#     db.delete(user)
+#     db.commit()
+#     return 'User Deleted'

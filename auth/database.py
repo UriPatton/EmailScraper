@@ -19,6 +19,5 @@ class User(Base):
     __tablename__ = 'users'
 
     email = Column(String, unique=True, nullable=False, primary_key=True)
-    password = Column(String)
     hashed_password = Column(String)
-    role = Column(String)
+    
