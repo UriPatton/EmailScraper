@@ -49,9 +49,7 @@ async def login_for_access_token(db: db_dependency,
              description='Scrapes emails from webpages',
              response_description='List of emails'
              )
-async def email_scraper(email_scraper_request: EmailScraperRequest,
-                        form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-                        db: db_dependency):
+async def email_scraper(email_scraper_request: EmailScraperRequest):
     job = q.enqueue(scrap_emails,
                     email_scraper_request.webpages,
                     email_scraper_request.max_worker,
