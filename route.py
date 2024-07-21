@@ -17,7 +17,7 @@ redis_conn = Redis(host='localhost', port=6379, db=0)  # Adjust connection param
 q = Queue(connection=redis_conn, name='default')
 
 
-@router.post("/token",
+@router.post("/token", dependencies=[Depends(oauth2_scheme)],
              response_model=Token,
              status_code=status.HTTP_200_OK,
              tags=['auth'],
@@ -39,8 +39,20 @@ async def login_for_access_token(db: db_dependency,
     )
     return Token(access_token=access_token, token_type="bearer")
 
+# class SomeForm:
+#
+#     def __init__(
+#         self,
+#         max_pages: int = Form(...),
+#         max_workers: int = Form(...),
+#         webpages: str = Form(...)
+#     ):
+#         self.max_pages = max_pages
+#         self.max_workers = max_workers
+#         self.webpages = webpages
 
-@router.post("/email_scraper/",
+
+@router.post("/email_scraper/", dependencies=[Depends(oauth2_scheme)],
              responses={200: {"job_id": "Job ID", "status": "In Progress"}},
              status_code=status.HTTP_200_OK,
              # dependencies=[Depends(oauth2_scheme)],
@@ -50,6 +62,8 @@ async def login_for_access_token(db: db_dependency,
              response_description='List of emails'
              )
 async def email_scraper(email_scraper_request: EmailScraperRequest):
+    # return scrap_emails(email_scraper_request, user)
+
     job = q.enqueue(scrap_emails,
                     email_scraper_request.webpages,
                     email_scraper_request.max_worker,
@@ -57,7 +71,7 @@ async def email_scraper(email_scraper_request: EmailScraperRequest):
     return {"job_id": job.id, "status": "In Progress"}
 
 
-@router.get("/email_scraper/{job_id}",
+@router.get("/email_scraper/{job_id}", dependencies=[Depends(oauth2_scheme)],
             response_model=Emails,
             responses={200: {"emails": ["jondoe@example.com"]}},
             status_code=status.HTTP_200_OK,
